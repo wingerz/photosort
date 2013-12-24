@@ -1,6 +1,8 @@
 # photosort
 
-A Clojure library designed to ... well, that part is up to you.
+A Clojure library designed to sort some photos based on exif data.
+
+Based on https://gist.github.com/ujihisa/5021684
 
 ## Usage
 

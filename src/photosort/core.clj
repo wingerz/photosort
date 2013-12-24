@@ -3,53 +3,44 @@
            [org.apache.sanselan ImageReadException Sanselan]
            [org.apache.sanselan.common IImageMetadata, RationalNumber]
            [org.apache.sanselan.formats.jpeg JpegImageMetadata]
-           [org.apache.sanselan.formats.tiff TiffField TiffImageMetadata]
-           [org.apache.sanselan.formats.tiff.constants ExifTagConstants
-            GPSTagConstants TagInfo TiffConstants TiffTagConstants])
+           [org.apache.sanselan.formats.tiff.constants ExifTagConstants])
   (:gen-class))
  
- 
-(defn print-tag-value [metadata tagInfo]
+
+(defn get-image-filenames
+  [dir]
+    (filter (fn [x] (re-find #".jpg$" x))
+          (for [file (file-seq (File. dir))] (str (.getPath file)))))
+  
+(defn get-tag-value [metadata tagInfo]
   (if-let [field (.findEXIFValue  metadata tagInfo)]
-    (println (str "        (" (.name tagInfo) ": " (.getValueDescription field)))
-    (println (str "        (" (.name tagInfo) " not found.)"))))
- 
+    (.getValueDescription field)
+    nil))
+
+
 (defn readexif [file]
   (let [metadata (Sanselan/getMetadata file)]
     (when (nil? metadata)
-      (println "\tNo EXIF metdata was found"))
+      nil)
     (when (instance? JpegImageMetadata metadata)
-      (println "  -- Standard EXIF Tags")
-      (print-tag-value metadata (TiffTagConstants/TIFF_TAG_XRESOLUTION))
-      (print-tag-value metadata (TiffTagConstants/TIFF_TAG_DATE_TIME))
-      (print-tag-value metadata (ExifTagConstants/EXIF_TAG_DATE_TIME_ORIGINAL))
-      (print-tag-value metadata (ExifTagConstants/EXIF_TAG_CREATE_DATE))
-      (print-tag-value metadata (ExifTagConstants/EXIF_TAG_ISO))
-      (print-tag-value metadata (ExifTagConstants/EXIF_TAG_SHUTTER_SPEED_VALUE))
-      (print-tag-value metadata (ExifTagConstants/EXIF_TAG_APERTURE_VALUE))
-      (print-tag-value metadata (ExifTagConstants/EXIF_TAG_BRIGHTNESS_VALUE))
-      (print-tag-value metadata (GPSTagConstants/GPS_TAG_GPS_LATITUDE_REF))
-      (print-tag-value metadata (GPSTagConstants/GPS_TAG_GPS_LATITUDE))
-      (print-tag-value metadata (GPSTagConstants/GPS_TAG_GPS_LONGITUDE_REF))
-      (print-tag-value metadata (GPSTagConstants/GPS_TAG_GPS_LONGITUDE_REF))
- 
-      ; simple interface to GPS data
-      (println "  -- GPS Info")
-      (when-let [exifMetadata (.getExif metadata)]
-        (when-let [gpsInfo (.getGPS exifMetadata)]
-          (let [longitude (.getLongitudeAsDegreesEast gpsInfo)
-                latitude (.getLatitudeAsDegreesNorth gpsInfo)]
-            (println (str "        GPS Description: " gpsInfo))
-            (println (str "        GPS Longitude (Degrees East):" longitude))
-            (println (str "        GPS Latitude (Degrees North):" latitude)))))
- 
-      ; Print all EXIF data
-      (println "  -- All EXIF info")
-      (doseq [item (.getItems metadata)]
-        (println (str "        " item)))
-      (println))))
- 
-(defn -main []
-  (let [file (File. "images/haxor.jpg")]
-    (prn 'file (.getPath file))
-    (readexif file)))
+      (get-tag-value metadata (ExifTagConstants/EXIF_TAG_DATE_TIME_ORIGINAL))
+      )))
+
+(defn get-output [dir dest-dir] 
+  (let [files (get-image-filenames dir)
+        files-by-date (sort #(compare (last %1) (last %2))
+                            (map
+                             (fn [x]
+                               (vec [x (readexif (File. x))]) )
+                             files))
+        num-files (count files)]
+     (for [i (range num-files)]
+       (format "cp \"%s\% \"%s/%03d.jpg\"" (first (nth files-by-date  i)) dest-dir (inc i)))))
+
+
+
+(defn -main [& args]
+  (println (get-output (first args) (second args))))
+
+    
+(-main "/Volumes/LaCie/temp/consumer" "/Volumes/Lacie/temp/consumer-by-date" )
